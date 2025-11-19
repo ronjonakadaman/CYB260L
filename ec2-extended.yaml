@@ -1,0 +1,16 @@
+Resources:
+  Instance:
+    Type: AWS::EC2::Instance
+    Properties: 
+      AdditionalInfo: String
+      Affinity: String
+      AvailabilityZone: String
+      BlockDeviceMappings: 
+        -BlockDeviceMapping
+      CpuOptions:
+        CpuOptions
+      CreditSpecification:
+        CreditSpecification
+      DisableApiTermination: Boolean
+      EbsOptimized: Boolean
+      
