@@ -1,0 +1,133 @@
+# Description of what this change includes: Valid YAML; Deploys in us-west-2; VPC named VPC-110; 3 AZ subnets (a, b, c); 
+                                            Internet Gateway; Public route table + associations; Outputs included
+# Revision number: 7 
+# Date: 07 DEC 2025
+
+AWSTemplateFormatVersion: 2010-09-09
+Description: VPC-110 CloudFormation Template for 3 AZ Public Subnets in us-west-2
+
+Parameters:
+  StudentID:
+    Type: String
+    Default: "110"
+    Description: ECPI Student ID used to name the VPC
+
+Resources:
+
+  # -----------------------------
+  # VPC
+  # -----------------------------
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.110.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub "VPC-${StudentID}"
+
+  # -----------------------------
+  # Internet Gateway
+  # -----------------------------
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  # -----------------------------
+  # Route Table
+  # -----------------------------
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: PublicRouteTable
+
+  DefaultRouteToInternet:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  # -----------------------------
+  # Public Subnets (3 AZs)
+  # -----------------------------
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.110.1.0/24
+      AvailabilityZone: us-west-2a
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: PublicSubnetA
+
+  PublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.110.2.0/24
+      AvailabilityZone: us-west-2b
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: PublicSubnetB
+
+  PublicSubnetC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.110.3.0/24
+      AvailabilityZone: us-west-2c
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: PublicSubnetC
+
+  # -----------------------------
+  # Subnet → Route Table Associations
+  # -----------------------------
+  SubnetRouteTableAssocA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetA
+      RouteTableId: !Ref PublicRouteTable
+
+  SubnetRouteTableAssocB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetB
+      RouteTableId: !Ref PublicRouteTable
+
+  SubnetRouteTableAssocC:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetC
+      RouteTableId: !Ref PublicRouteTable
+
+Outputs:
+
+  VPCId:
+    Description: The ID of the created VPC
+    Value: !Ref VPC
+
+  PublicSubnetAId:
+    Description: Subnet A ID
+    Value: !Ref PublicSubnetA
+
+  PublicSubnetBId:
+    Description: Subnet B ID
+    Value: !Ref PublicSubnetB
+
+  PublicSubnetCId:
+    Description: Subnet C ID
+    Value: !Ref PublicSubnetC
