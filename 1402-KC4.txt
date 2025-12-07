@@ -1,0 +1,164 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "KC4 - Scalable Web Application - Student ID 1402"
+
+Parameters:
+  InstanceType:
+    Type: String
+    Default: t2.micro
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Key pair for EC2 instances
+
+Mappings:
+  RegionMap:
+    us-west-2:
+      AZ1: us-west-2a
+      AZ2: us-west-2b
+
+Resources:
+
+  ###########################################
+  # Security Group
+  ###########################################
+  WebSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable HTTP access
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+
+  ###########################################
+  # Networking
+  ###########################################
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+
+  SubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !FindInMap [RegionMap, us-west-2, AZ1]
+      CidrBlock: 10.0.1.0/24
+
+  SubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !FindInMap [RegionMap, us-west-2, AZ2]
+      CidrBlock: 10.0.2.0/24
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+
+  Route:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref RouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  SubnetARoute:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubnetA
+      RouteTableId: !Ref RouteTable
+
+  SubnetBRoute:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubnetB
+      RouteTableId: !Ref RouteTable
+
+  ###########################################
+  # Application Load Balancer
+  ###########################################
+  ALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Subnets:
+        - !Ref SubnetA
+        - !Ref SubnetB
+      SecurityGroups:
+        - !Ref WebSG
+
+  ALBTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref VPC
+      Port: 80
+      Protocol: HTTP
+      TargetType: instance
+
+  ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ALB
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref ALBTargetGroup
+
+  ###########################################
+  # Auto Scaling Group
+  ###########################################
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateData:
+        InstanceType: !Ref InstanceType
+        KeyName: !Ref KeyPairName
+        ImageId: ami-0c02fb55956c7d316
+        SecurityGroupIds:
+          - !Ref WebSG
+
+  ASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier:
+        - !Ref SubnetA
+        - !Ref SubnetB
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: !GetAtt LaunchTemplate.LatestVersionNumber
+      MinSize: "2"
+      MaxSize: "4"
+      TargetGroupARNs:
+        - !Ref ALBTargetGroup
+
+  ###########################################
+  # S3 Bucket with Versioning
+  ###########################################
+  StaticBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: static-content-1402
+      VersioningConfiguration:
+        Status: Enabled
+
+Outputs:
+  LoadBalancerDNS:
+    Description: DNS Name of the Load Balancer
+    Value: !GetAtt ALB.DNSName
+
+  S3BucketName:
+    Description: Name of the S3 bucket
+    Value: !Ref StaticBucket
