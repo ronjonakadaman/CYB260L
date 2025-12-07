@@ -1,9 +1,14 @@
+# Description: Added EBS volume for persistent storage
+# Revision: 1.1
+# Date: 2025-02-10
+
 AWSTemplateFormatVersion: "2010-09-09"
 Description: Amazon Elastic Compute Cloud (EC2) Template
 Parameters:
   LatestAmiId:
     Type: "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>"
     Default: "/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2"
+
   KeyName:
     Type: AWS::EC2::KeyPair::KeyName
     Description: Existing EC2 KeyPair to allow SSH access
@@ -14,4 +19,9 @@ Resources:
       ImageId: !Ref LatestAmiId
       KeyName: !Ref KeyName
       InstanceType: t2.micro
- 
+      BlockDeviceMappings:
+        - DeviceName: /dev/sdm
+          Ebs:
+            VolumeType: gp2
+            DeleteOnTermination: false
+            VolumeSize: 20
